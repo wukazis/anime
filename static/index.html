@@ -11,12 +11,28 @@
     <div class="container">
         <header>
             <h1>🎬 动漫站</h1>
-            <div class="breadcrumb" id="breadcrumb"></div>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="搜索番剧..." />
+                <div id="searchResults" class="search-results"></div>
+            </div>
+            <div class="year-filter" id="yearFilter"></div>
         </header>
 
         <main>
-            <div class="file-list" id="fileList"></div>
-            <div class="player-container" id="playerContainer" style="display:none;">
+            <div class="anime-grid" id="animeGrid"></div>
+            <div class="pagination" id="pagination"></div>
+            
+            <!-- 番剧详情弹窗 -->
+            <div class="modal" id="animeModal">
+                <div class="modal-content">
+                    <span class="close-btn" onclick="closeModal()">✕</span>
+                    <div id="animeDetail"></div>
+                    <div class="file-list" id="fileList"></div>
+                </div>
+            </div>
+
+            <!-- 播放器 -->
+            <div class="player-container" id="playerContainer">
                 <button class="close-btn" onclick="closePlayer()">✕ 关闭</button>
                 <div id="dplayer"></div>
             </div>
