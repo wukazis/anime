@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>动漫站</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dplayer/dist/DPlayer.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎬 动漫站</h1>
+            <div class="breadcrumb" id="breadcrumb"></div>
+        </header>
+
+        <main>
+            <div class="file-list" id="fileList"></div>
+            <div class="player-container" id="playerContainer" style="display:none;">
+                <button class="close-btn" onclick="closePlayer()">✕ 关闭</button>
+                <div id="dplayer"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/dplayer/dist/DPlayer.min.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>
