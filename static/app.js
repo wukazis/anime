@@ -113,22 +113,39 @@ function showAnimeDetail(anime) {
         </div>
     `;
 
-    document.getElementById('fileList').innerHTML = '<h3>📂 选择视频源</h3><div class="loading">请在网盘中查找对应文件...</div>';
-    modal.classList.add('show');
+    const fileList = document.getElementById('fileList');
     
-    // 尝试在网盘中搜索匹配的文件夹
-    searchInStorage(anime.name_cn || anime.name);
+    if (anime.has_resource) {
+        fileList.innerHTML = '<h3>🎬 选集</h3><div class="loading">加载中...</div>';
+        modal.classList.add('show');
+        loadEpisodes(anime.name_cn || anime.name, anime.year);
+    } else {
+        fileList.innerHTML = '<h3>🎬 选集</h3><p style="color:#888">暂无资源</p>';
+        modal.classList.add('show');
+    }
 }
 
-async function searchInStorage(animeName) {
+async function loadEpisodes(name, year) {
     const fileList = document.getElementById('fileList');
-    // 这里可以扩展：遍历网盘目录匹配番剧名
-    fileList.innerHTML = `
-        <h3>📂 选择视频源</h3>
-        <p style="color:#888;margin-bottom:15px">在网盘中查找: ${animeName}</p>
-        <div class="file-item" onclick="browseStorage('/onedrive')">📁 OneDrive</div>
-        <div class="file-item" onclick="browseStorage('/pikpak')">📁 PikPak</div>
-    `;
+    try {
+        const resp = await fetch(`/api/anime/episodes?name=${encodeURIComponent(name)}&year=${year}`);
+        const data = await resp.json();
+        
+        if (!data.episodes || data.episodes.length === 0) {
+            fileList.innerHTML = '<h3>🎬 选集</h3><p style="color:#888">暂无视频文件</p>';
+            return;
+        }
+
+        let html = `<h3>🎬 选集 (${data.episodes.length}集)</h3><div class="episode-grid">`;
+        data.episodes.forEach((ep, idx) => {
+            const num = idx + 1;
+            html += `<div class="episode-btn" onclick="playVideo('${ep.path.replace(/'/g, "\\'")}')" title="${ep.name}">${num}</div>`;
+        });
+        html += '</div>';
+        fileList.innerHTML = html;
+    } catch (e) {
+        fileList.innerHTML = '<h3>🎬 选集</h3><p style="color:#f66">加载失败</p>';
+    }
 }
 
 async function browseStorage(path) {

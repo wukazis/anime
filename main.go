@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -30,9 +31,16 @@ type AnimeInfo struct {
 	HasResource bool     `json:"has_resource"`
 }
 
+type AnimeMapping struct {
+	AnimeName  string `json:"anime_name"`
+	FolderName string `json:"folder_name"`
+	FolderPath string `json:"folder_path"`
+}
+
 var config Config
 var animeDB []AnimeInfo
-var animeMapping map[string]bool // 番剧名 -> 是否有资源
+var animeMapping map[string]bool         // 番剧名 -> 是否有资源
+var animeFolderPath map[string]string    // 番剧名 -> 文件夹路径
 
 func main() {
 	loadConfig()
@@ -42,6 +50,7 @@ func main() {
 	http.HandleFunc("/", serveIndex)
 	http.HandleFunc("/api/anime", handleAnimeList)
 	http.HandleFunc("/api/anime/search", handleAnimeSearch)
+	http.HandleFunc("/api/anime/episodes", handleAnimeEpisodes)
 	http.HandleFunc("/api/list", handleList)
 	http.HandleFunc("/api/get", handleGet)
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
@@ -72,17 +81,17 @@ func loadAnimeDB() {
 
 func loadAnimeMapping() {
 	animeMapping = make(map[string]bool)
+	animeFolderPath = make(map[string]string)
 	data, err := os.ReadFile("data/anime_mapping.json")
 	if err != nil {
 		log.Printf("警告: 无法加载映射表: %v", err)
 		return
 	}
-	var mappings []struct {
-		AnimeName string `json:"anime_name"`
-	}
+	var mappings []AnimeMapping
 	json.Unmarshal(data, &mappings)
 	for _, m := range mappings {
 		animeMapping[m.AnimeName] = true
+		animeFolderPath[m.AnimeName] = m.FolderPath
 	}
 	log.Printf("已加载 %d 条资源映射", len(animeMapping))
 }
@@ -154,6 +163,80 @@ func handleAnimeSearch(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(results)
+}
+
+// 获取番剧的视频文件列表
+func handleAnimeEpisodes(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("name")
+	year := r.URL.Query().Get("year")
+	if name == "" || year == "" {
+		http.Error(w, "name and year required", 400)
+		return
+	}
+
+	key := fmt.Sprintf("%s (%s)", name, year)
+	folderPath, ok := animeFolderPath[key]
+	if !ok {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"episodes": []string{}})
+		return
+	}
+
+	// 转换路径格式：onedrive:anime/xxx -> /onedrive/anime/xxx, wukazi/xxx -> /pikpak/wukazi/xxx
+	var apiPath string
+	if strings.HasPrefix(folderPath, "onedrive:") {
+		apiPath = "/" + strings.Replace(folderPath, ":", "/", 1)
+	} else {
+		apiPath = "/pikpak/" + folderPath
+	}
+
+	// 调用 OpenList 获取文件列表
+	body := map[string]interface{}{"path": apiPath, "password": "", "page": 1, "per_page": 0, "refresh": false}
+	resp, err := callOpenList("/api/fs/list", body)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	var result struct {
+		Code int `json:"code"`
+		Data struct {
+			Content []struct {
+				Name  string `json:"name"`
+				IsDir bool   `json:"is_dir"`
+			} `json:"content"`
+		} `json:"data"`
+	}
+	json.Unmarshal(resp, &result)
+
+	// 过滤出视频文件并排序
+	var episodes []map[string]string
+	for _, f := range result.Data.Content {
+		if !f.IsDir && isVideoFile(f.Name) {
+			episodes = append(episodes, map[string]string{
+				"name": f.Name,
+				"path": apiPath + "/" + f.Name,
+			})
+		}
+	}
+
+	// 按文件名排序
+	sort.Slice(episodes, func(i, j int) bool {
+		return episodes[i]["name"] < episodes[j]["name"]
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"folder_path": apiPath,
+		"episodes":    episodes,
+	})
+}
+
+func isVideoFile(name string) bool {
+	name = strings.ToLower(name)
+	return strings.HasSuffix(name, ".mp4") || strings.HasSuffix(name, ".mkv") ||
+		strings.HasSuffix(name, ".avi") || strings.HasSuffix(name, ".webm") ||
+		strings.HasSuffix(name, ".flv") || strings.HasSuffix(name, ".mov")
 }
 
 // OpenList 目录列表
