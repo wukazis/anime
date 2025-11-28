@@ -116,18 +116,6 @@ func main() {
 
 func extractSeason(s string) int {
 	s = strings.ToLower(s)
-	
-	// 匹配各种季数表示
-	patterns := []struct {
-		re     *regexp.Regexp
-		season int
-	}{
-		{regexp.MustCompile(`第([一二三四五六七八九十\d]+)季`), 0},
-		{regexp.MustCompile(`season\s*(\d+)`), 0},
-		{regexp.MustCompile(`s(\d+)`), 0},
-		{regexp.MustCompile(`(\d+)(?:nd|rd|th)\s*season`), 0},
-		{regexp.MustCompile(`ii+`), 0}, // II, III 等
-	}
 
 	// 中文数字转换
 	cnNum := map[string]int{
