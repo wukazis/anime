@@ -15,6 +15,7 @@ import (
 type Config struct {
 	Port        string `json:"port"`
 	OpenListURL string `json:"openlist_url"`
+	RcloneURL   string `json:"rclone_url"`
 }
 
 type AnimeInfo struct {
@@ -66,6 +67,7 @@ func loadConfig() {
 	config = Config{
 		Port:        "8888",
 		OpenListURL: "https://www.openlists.online",
+		RcloneURL:   "http://localhost:5555",
 	}
 	data, _ := os.ReadFile("config.json")
 	json.Unmarshal(data, &config)
@@ -233,6 +235,20 @@ func handleGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 如果是 onedrive 路径，使用 rclone serve 直链
+	if strings.HasPrefix(path, "/onedrive/") {
+		// /onedrive/anime/xxx -> anime/xxx
+		rclonePath := strings.TrimPrefix(path, "/onedrive/")
+		rawURL := strings.TrimSuffix(config.RcloneURL, "/") + "/" + rclonePath
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"code": 200,
+			"data": map[string]string{"raw_url": rawURL},
+		})
+		return
+	}
+
+	// 其他路径走 OpenList
 	body := map[string]interface{}{"path": path, "password": ""}
 	resp, err := callOpenList("/api/fs/get", body)
 	if err != nil {
