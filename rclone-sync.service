@@ -1,0 +1,13 @@
+[Unit]
+Description=Rclone Sync PikPak to OneDrive
+After=network.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+ExecStart=/usr/bin/rclone copy pikpak:wukazi onedrive:anime --ignore-existing --transfers 4 --checkers 8 -v
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
