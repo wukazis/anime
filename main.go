@@ -82,7 +82,7 @@ func loadAnimeDB() {
 func loadAnimeMapping() {
 	animeMapping = make(map[string]bool)
 	animeFolderPath = make(map[string]string)
-	data, err := os.ReadFile("data/anime_mapping.json")
+	data, err := os.ReadFile("data/anime_mapping_onedrive.json")
 	if err != nil {
 		log.Printf("警告: 无法加载映射表: %v", err)
 		return
