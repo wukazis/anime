@@ -245,7 +245,8 @@ func handleGet(w http.ResponseWriter, r *http.Request) {
 
 func callOpenList(endpoint string, body map[string]interface{}) ([]byte, error) {
 	jsonBody, _ := json.Marshal(body)
-	req, _ := http.NewRequest("POST", config.OpenListURL+endpoint, bytes.NewBuffer(jsonBody))
+	baseURL := strings.TrimSuffix(config.OpenListURL, "/")
+	req, _ := http.NewRequest("POST", baseURL+endpoint, bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := (&http.Client{}).Do(req)
