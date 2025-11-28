@@ -18,23 +18,26 @@ type Config struct {
 }
 
 type AnimeInfo struct {
-	ID      int      `json:"id"`
-	Name    string   `json:"name"`
-	NameCN  string   `json:"name_cn"`
-	Year    int      `json:"year"`
-	Date    string   `json:"date"`
-	Summary string   `json:"summary"`
-	Cover   string   `json:"cover"`
-	Score   float64  `json:"score"`
-	Tags    []string `json:"tags"`
+	ID          int      `json:"id"`
+	Name        string   `json:"name"`
+	NameCN      string   `json:"name_cn"`
+	Year        int      `json:"year"`
+	Date        string   `json:"date"`
+	Summary     string   `json:"summary"`
+	Cover       string   `json:"cover"`
+	Score       float64  `json:"score"`
+	Tags        []string `json:"tags"`
+	HasResource bool     `json:"has_resource"`
 }
 
 var config Config
 var animeDB []AnimeInfo
+var animeMapping map[string]bool // 番剧名 -> 是否有资源
 
 func main() {
 	loadConfig()
 	loadAnimeDB()
+	loadAnimeMapping()
 
 	http.HandleFunc("/", serveIndex)
 	http.HandleFunc("/api/anime", handleAnimeList)
@@ -67,6 +70,23 @@ func loadAnimeDB() {
 	json.Unmarshal(data, &animeDB)
 }
 
+func loadAnimeMapping() {
+	animeMapping = make(map[string]bool)
+	data, err := os.ReadFile("data/anime_mapping.json")
+	if err != nil {
+		log.Printf("警告: 无法加载映射表: %v", err)
+		return
+	}
+	var mappings []struct {
+		AnimeName string `json:"anime_name"`
+	}
+	json.Unmarshal(data, &mappings)
+	for _, m := range mappings {
+		animeMapping[m.AnimeName] = true
+	}
+	log.Printf("已加载 %d 条资源映射", len(animeMapping))
+}
+
 func serveIndex(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
@@ -85,6 +105,12 @@ func handleAnimeList(w http.ResponseWriter, r *http.Request) {
 	var filtered []AnimeInfo
 	for _, a := range animeDB {
 		if year == 0 || a.Year == year {
+			// 检查是否有资源
+			key := fmt.Sprintf("%s (%d)", a.NameCN, a.Year)
+			if a.NameCN == "" {
+				key = fmt.Sprintf("%s (%d)", a.Name, a.Year)
+			}
+			a.HasResource = animeMapping[key]
 			filtered = append(filtered, a)
 		}
 	}
@@ -116,6 +142,11 @@ func handleAnimeSearch(w http.ResponseWriter, r *http.Request) {
 	for _, a := range animeDB {
 		if strings.Contains(strings.ToLower(a.Name), keyword) ||
 			strings.Contains(strings.ToLower(a.NameCN), keyword) {
+			key := fmt.Sprintf("%s (%d)", a.NameCN, a.Year)
+			if a.NameCN == "" {
+				key = fmt.Sprintf("%s (%d)", a.Name, a.Year)
+			}
+			a.HasResource = animeMapping[key]
 			results = append(results, a)
 			if len(results) >= 50 { break }
 		}

@@ -47,9 +47,11 @@ header h1 {
 
 .anime-card {
     background: rgba(255,255,255,0.05); border-radius: 10px;
-    overflow: hidden; cursor: pointer; transition: transform 0.3s;
+    overflow: hidden; cursor: pointer; transition: transform 0.3s, box-shadow 0.3s;
 }
 .anime-card:hover { transform: translateY(-5px); }
+.anime-card.has-resource { box-shadow: 0 0 12px 2px rgba(0, 255, 100, 0.5); }
+.anime-card.no-resource { box-shadow: 0 0 12px 2px rgba(255, 50, 50, 0.5); }
 .anime-card img { width: 100%; aspect-ratio: 3/4; object-fit: cover; }
 .anime-card .info { padding: 10px; }
 .anime-card .title { font-size: 14px; font-weight: 500; line-height: 1.3; height: 36px; overflow: hidden; }

@@ -39,7 +39,7 @@ async function loadAnimeList() {
     }
 
     grid.innerHTML = result.data.map(anime => `
-        <div class="anime-card" onclick="showAnimeDetail(${JSON.stringify(anime).replace(/"/g, '&quot;')})">
+        <div class="anime-card ${anime.has_resource ? 'has-resource' : 'no-resource'}" onclick="showAnimeDetail(${JSON.stringify(anime).replace(/"/g, '&quot;')})">
             <img src="${anime.cover || '/static/no-cover.png'}" alt="${anime.name_cn || anime.name}" loading="lazy">
             <div class="info">
                 <div class="title">${anime.name_cn || anime.name}</div>

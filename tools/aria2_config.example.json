@@ -1,0 +1,5 @@
+{
+  "aria2_url": "http://127.0.0.1:6800/jsonrpc",
+  "aria2_secret": "你的aria2密码",
+  "download_dir": "/tmp/aria2/anime"
+}
