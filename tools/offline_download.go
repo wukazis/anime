@@ -56,6 +56,13 @@ func main() {
 	success := 0
 	failed := 0
 
+	// 只处理前 100 个
+	limit := 100
+	if len(magnets) > limit {
+		magnets = magnets[:limit]
+		fmt.Printf("限制处理前 %d 个\n\n", limit)
+	}
+
 	for i, m := range magnets {
 		fmt.Printf("[%d/%d] %s ... ", i+1, len(magnets), m.name)
 
