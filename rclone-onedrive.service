@@ -1,0 +1,13 @@
+[Unit]
+Description=Rclone OneDrive HTTP Server
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+ExecStart=/usr/bin/rclone serve http onedrive: --addr 0.0.0.0:5555 --read-only
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
