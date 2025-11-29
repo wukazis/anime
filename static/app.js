@@ -2,8 +2,14 @@ let currentYear = 0;
 let currentPage = 1;
 let dp = null;
 
-// Cloudflare Worker 代理配置（部署后填入你的 Worker URL）
-const CF_WORKER_URL = 'https://odd.wukazi.xyz'; // 例如: 'https://onedrive-proxy.your-name.workers.dev'
+// 视频源模式: 'clouddrive' 或 'openlist'
+const VIDEO_MODE = 'clouddrive';
+
+// CloudDrive2 配置
+const CLOUDDRIVE_PATH = '/OneDrive';  // WebDAV 中的 OneDrive 挂载路径
+
+// Cloudflare Worker 代理（openlist 模式时使用）
+const CF_WORKER_URL = 'https://odd.wukazi.xyz';
 
 document.addEventListener('DOMContentLoaded', () => {
     restoreStateFromURL();
@@ -12,14 +18,12 @@ document.addEventListener('DOMContentLoaded', () => {
     initSearch();
 });
 
-// 从 URL 恢复状态
 function restoreStateFromURL() {
     const params = new URLSearchParams(window.location.search);
     currentYear = parseInt(params.get('year')) || 0;
     currentPage = parseInt(params.get('page')) || 1;
 }
 
-// 更新 URL 参数
 function updateURL() {
     const params = new URLSearchParams();
     if (currentYear) params.set('year', currentYear);
@@ -123,7 +127,7 @@ async function searchAnime(q) {
 function showAnimeDetail(anime) {
     const modal = document.getElementById('animeModal');
     const detail = document.getElementById('animeDetail');
-    
+
     detail.innerHTML = `
         <img src="${anime.cover || '/static/no-cover.png'}" alt="">
         <div class="detail-info">
@@ -136,7 +140,7 @@ function showAnimeDetail(anime) {
     `;
 
     const fileList = document.getElementById('fileList');
-    
+
     if (anime.has_resource) {
         fileList.innerHTML = '<h3>🎬 选集</h3><div class="loading">加载中...</div>';
         modal.classList.add('show');
@@ -152,7 +156,7 @@ async function loadEpisodes(name, year) {
     try {
         const resp = await fetch(`/api/anime/episodes?name=${encodeURIComponent(name)}&year=${year}`);
         const data = await resp.json();
-        
+
         if (!data.episodes || data.episodes.length === 0) {
             fileList.innerHTML = '<h3>🎬 选集</h3><p style="color:#888">暂无视频文件</p>';
             return;
@@ -161,7 +165,7 @@ async function loadEpisodes(name, year) {
         let html = `<h3>🎬 选集 (${data.episodes.length}集)</h3><div class="episode-grid">`;
         data.episodes.forEach((ep, idx) => {
             const num = idx + 1;
-            html += `<div class="episode-btn" onclick="playVideo('${ep.path.replace(/'/g, "\\'")}')" title="${ep.name}">${num}</div>`;
+            html += `<div class="episode-btn" onclick="playVideo('${ep.path.replace(/'/g, "\\'")}', '${ep.name.replace(/'/g, "\\'")}')" title="${ep.name}">${num}</div>`;
         });
         html += '</div>';
         fileList.innerHTML = html;
@@ -170,58 +174,39 @@ async function loadEpisodes(name, year) {
     }
 }
 
-async function browseStorage(path) {
-    const fileList = document.getElementById('fileList');
-    fileList.innerHTML = '<h3>📂 文件列表</h3><div class="loading">加载中...</div>';
-
-    const resp = await fetch(`/api/list?path=${encodeURIComponent(path)}`);
-    const result = await resp.json();
-    const files = result.data?.content || [];
-
-    let html = `<h3>📂 ${path}</h3>`;
-    if (path !== '/') {
-        const parent = path.split('/').slice(0, -1).join('/') || '/';
-        html += `<div class="file-item" onclick="browseStorage('${parent}')">⬆️ 返回上级</div>`;
-    }
-
-    files.sort((a,b) => (b.is_dir - a.is_dir) || a.name.localeCompare(b.name));
-    html += files.map(f => {
-        const fullPath = path + '/' + f.name;
-        if (f.is_dir) {
-            return `<div class="file-item" onclick="browseStorage('${fullPath}')">📁 ${f.name}</div>`;
-        }
-        if (/\.(mp4|mkv|avi|webm)$/i.test(f.name)) {
-            return `<div class="file-item" onclick="playVideo('${fullPath}')">🎬 ${f.name}</div>`;
-        }
-        return '';
-    }).join('');
-
-    fileList.innerHTML = html;
-}
-
 function closeModal() {
     document.getElementById('animeModal').classList.remove('show');
 }
 
-async function playVideo(path) {
+async function playVideo(path, filename) {
     const container = document.getElementById('playerContainer');
     container.classList.add('show');
     closeModal();
 
-    const resp = await fetch(`/api/get?path=${encodeURIComponent(path)}`);
-    const result = await resp.json();
+    let videoUrl;
 
-    if (result.code !== 200 || !result.data?.raw_url) {
-        alert('获取播放地址失败');
-        closePlayer();
-        return;
-    }
+    if (VIDEO_MODE === 'clouddrive') {
+        // CloudDrive2 模式：直接走后端流式代理
+        // 路径格式: /onedrive/anime/xxx/file.mp4 -> /api/stream/OneDrive/anime/xxx/file.mp4
+        const streamPath = path.replace(/^\/onedrive/i, CLOUDDRIVE_PATH);
+        videoUrl = `/api/stream${streamPath}`;
+    } else {
+        // OpenList 模式：获取直链
+        const resp = await fetch(`/api/get?path=${encodeURIComponent(path)}`);
+        const result = await resp.json();
 
-    let videoUrl = result.data.raw_url;
-    
-    // 如果配置了 CF Worker 且是 OneDrive/SharePoint 链接，走代理
-    if (CF_WORKER_URL && isOneDriveUrl(videoUrl)) {
-        videoUrl = `${CF_WORKER_URL}/?url=${encodeURIComponent(videoUrl)}`;
+        if (result.code !== 200 || !result.data?.raw_url) {
+            alert('获取播放地址失败');
+            closePlayer();
+            return;
+        }
+
+        videoUrl = result.data.raw_url;
+
+        // CF Worker 代理
+        if (CF_WORKER_URL && isOneDriveUrl(videoUrl)) {
+            videoUrl = `${CF_WORKER_URL}/?url=${encodeURIComponent(videoUrl)}`;
+        }
     }
 
     if (dp) dp.destroy();
@@ -232,7 +217,6 @@ async function playVideo(path) {
     });
 }
 
-// 判断是否是 OneDrive/SharePoint URL
 function isOneDriveUrl(url) {
     const hosts = ['sharepoint.com', 'onedrive.live.com', '1drv.ms', 'storage.live.com'];
     try {
