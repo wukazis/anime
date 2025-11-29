@@ -100,11 +100,26 @@ header h1 {
 
 /* 自定义 DPlayer loading 动画 */
 .dplayer-loading-icon {
-    background: url('https://img.rewink.asia/0.gif') no-repeat center center !important;
-    background-size: contain !important;
-    width: 120px !important;
-    height: 120px !important;
-}
-.dplayer-loading-icon svg {
     display: none !important;
+}
+.dplayer-bezel-icon {
+    display: none !important;
+}
+.dplayer .dplayer-video-wrap::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 120px;
+    height: 120px;
+    background: url('https://img.rewink.asia/0.gif') no-repeat center center;
+    background-size: contain;
+    z-index: 10;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+.dplayer.dplayer-loading .dplayer-video-wrap::before {
+    opacity: 1;
 }
