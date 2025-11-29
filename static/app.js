@@ -2,6 +2,9 @@ let currentYear = 0;
 let currentPage = 1;
 let dp = null;
 
+// Cloudflare Worker 代理配置（部署后填入你的 Worker URL）
+const CF_WORKER_URL = 'https://odd.wukazi.xyz'; // 例如: 'https://onedrive-proxy.your-name.workers.dev'
+
 document.addEventListener('DOMContentLoaded', () => {
     initYearFilter();
     loadAnimeList();
@@ -195,12 +198,30 @@ async function playVideo(path) {
         return;
     }
 
+    let videoUrl = result.data.raw_url;
+    
+    // 如果配置了 CF Worker 且是 OneDrive/SharePoint 链接，走代理
+    if (CF_WORKER_URL && isOneDriveUrl(videoUrl)) {
+        videoUrl = `${CF_WORKER_URL}/?url=${encodeURIComponent(videoUrl)}`;
+    }
+
     if (dp) dp.destroy();
     dp = new DPlayer({
         container: document.getElementById('dplayer'),
-        video: { url: result.data.raw_url, type: 'auto' },
+        video: { url: videoUrl, type: 'auto' },
         autoplay: true
     });
+}
+
+// 判断是否是 OneDrive/SharePoint URL
+function isOneDriveUrl(url) {
+    const hosts = ['sharepoint.com', 'onedrive.live.com', '1drv.ms', 'storage.live.com'];
+    try {
+        const hostname = new URL(url).hostname;
+        return hosts.some(h => hostname.endsWith(h));
+    } catch {
+        return false;
+    }
 }
 
 function closePlayer() {
