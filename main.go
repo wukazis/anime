@@ -229,7 +229,7 @@ func handleList(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
-// 获取文件直链
+// 获取文件直链（使用 OpenList）
 func handleGet(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
 	if path == "" {
@@ -237,32 +237,7 @@ func handleGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 如果是 onedrive 路径，使用 rclone serve 直链
-	if strings.HasPrefix(path, "/onedrive/") {
-		rclonePath := strings.TrimPrefix(path, "/onedrive/")
-		rawURL := strings.TrimSuffix(config.RcloneURL, "/") + "/" + rclonePath
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code": 200,
-			"data": map[string]string{"raw_url": rawURL},
-		})
-		return
-	}
-
-	// 如果是 pikpak 路径，使用 rclone serve 直链
-	if strings.HasPrefix(path, "/pikpak/") {
-		// /pikpak/wukazi/xxx -> xxx (去掉 wukazi 前缀，因为 rclone serve 的根目录就是 wukazi)
-		rclonePath := strings.TrimPrefix(path, "/pikpak/wukazi/")
-		rawURL := strings.TrimSuffix(config.RclonePikpakURL, "/") + "/" + rclonePath
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code": 200,
-			"data": map[string]string{"raw_url": rawURL},
-		})
-		return
-	}
-
-	// 其他路径走 OpenList
+	// 统一使用 OpenList 获取直链
 	body := map[string]interface{}{"path": path, "password": ""}
 	resp, err := callOpenList("/api/fs/get", body)
 	if err != nil {
