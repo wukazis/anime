@@ -96,3 +96,15 @@ header h1 {
 #dplayer { width: 100%; max-width: 1200px; aspect-ratio: 16/9; }
 
 .loading { text-align: center; padding: 50px; color: #888; }
+
+
+/* 自定义 DPlayer loading 动画 */
+.dplayer-loading-icon {
+    background: url('https://img.rewink.asia/0.gif') no-repeat center center !important;
+    background-size: contain !important;
+    width: 120px !important;
+    height: 120px !important;
+}
+.dplayer-loading-icon svg {
+    display: none !important;
+}
