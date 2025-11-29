@@ -6,16 +6,33 @@ let dp = null;
 const CF_WORKER_URL = 'https://odd.wukazi.xyz'; // 例如: 'https://onedrive-proxy.your-name.workers.dev'
 
 document.addEventListener('DOMContentLoaded', () => {
+    restoreStateFromURL();
     initYearFilter();
     loadAnimeList();
     initSearch();
 });
 
+// 从 URL 恢复状态
+function restoreStateFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    currentYear = parseInt(params.get('year')) || 0;
+    currentPage = parseInt(params.get('page')) || 1;
+}
+
+// 更新 URL 参数
+function updateURL() {
+    const params = new URLSearchParams();
+    if (currentYear) params.set('year', currentYear);
+    if (currentPage > 1) params.set('page', currentPage);
+    const newURL = params.toString() ? `?${params.toString()}` : window.location.pathname;
+    history.replaceState(null, '', newURL);
+}
+
 function initYearFilter() {
     const container = document.getElementById('yearFilter');
-    let html = '<button class="year-btn active" onclick="filterYear(0)">全部</button>';
-    for (let y = 2024; y >= 2000; y--) {
-        html += `<button class="year-btn" onclick="filterYear(${y})">${y}</button>`;
+    let html = `<button class="year-btn ${currentYear === 0 ? 'active' : ''}" onclick="filterYear(0)">全部</button>`;
+    for (let y = 2025; y >= 2000; y--) {
+        html += `<button class="year-btn ${currentYear === y ? 'active' : ''}" onclick="filterYear(${y})">${y}</button>`;
     }
     container.innerHTML = html;
 }
@@ -23,6 +40,7 @@ function initYearFilter() {
 function filterYear(year) {
     currentYear = year;
     currentPage = 1;
+    updateURL();
     document.querySelectorAll('.year-btn').forEach(btn => btn.classList.remove('active'));
     event.target.classList.add('active');
     loadAnimeList();
@@ -67,6 +85,7 @@ function renderPagination(total, page) {
 
 function goPage(page) {
     currentPage = page;
+    updateURL();
     loadAnimeList();
     window.scrollTo(0, 0);
 }
