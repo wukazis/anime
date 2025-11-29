@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>直链速度测试</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; background: #1a1a2e; color: #eee; }
+        h1 { color: #00d4ff; }
+        .input-group { margin: 20px 0; }
+        input[type="text"] { width: 100%; padding: 10px; font-size: 14px; background: #16213e; border: 1px solid #0f3460; color: #eee; border-radius: 4px; }
+        button { padding: 10px 20px; background: #00d4ff; border: none; color: #000; cursor: pointer; border-radius: 4px; margin: 5px; }
+        button:hover { background: #00a8cc; }
+        .result { background: #16213e; padding: 15px; margin: 10px 0; border-radius: 8px; }
+        .result h3 { margin: 0 0 10px 0; }
+        .speed { font-size: 24px; color: #00d4ff; }
+        .progress { background: #0f3460; height: 20px; border-radius: 10px; overflow: hidden; margin: 10px 0; }
+        .progress-bar { height: 100%; background: linear-gradient(90deg, #00d4ff, #00ff88); transition: width 0.3s; }
+        .log { background: #0f0f1a; padding: 10px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>🚀 OneDrive 直链速度测试</h1>
+    
+    <div class="input-group">
+        <label>OneDrive 直链 URL:</label>
+        <input type="text" id="directUrl" placeholder="粘贴 OneDrive 直链...">
+    </div>
+    
+    <div class="input-group">
+        <label>CF Worker URL:</label>
+        <input type="text" id="workerUrl" value="https://odd.wukazi.xyz">
+    </div>
+    
+    <div class="input-group">
+        <label>测试大小 (MB):</label>
+        <input type="number" id="testSize" value="10" style="width: 100px;">
+    </div>
+    
+    <button onclick="testDirect()">测试直链速度</button>
+    <button onclick="testProxy()">测试 CF 代理速度</button>
+    <button onclick="testBoth()">对比测试</button>
+    
+    <div id="results"></div>
+    
+    <div class="log" id="log"></div>
+
+<script>
+const log = (msg) => {
+    const el = document.getElementById('log');
+    el.innerHTML += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+    el.scrollTop = el.scrollHeight;
+};
+
+async function measureSpeed(url, label) {
+    const testSize = parseInt(document.getElementById('testSize').value) * 1024 * 1024;
+    
+    log(`开始测试: ${label}`);
+    log(`URL: ${url.substring(0, 80)}...`);
+    
+    const resultsDiv = document.getElementById('results');
+    const resultId = 'result-' + Date.now();
+    resultsDiv.innerHTML += `
+        <div class="result" id="${resultId}">
+            <h3>${label}</h3>
+            <div class="progress"><div class="progress-bar" style="width: 0%"></div></div>
+            <div>已下载: <span class="downloaded">0</span> MB</div>
+            <div>速度: <span class="speed">测试中...</span></div>
+        </div>
+    `;
+    
+    const resultEl = document.getElementById(resultId);
+    const progressBar = resultEl.querySelector('.progress-bar');
+    const downloadedEl = resultEl.querySelector('.downloaded');
+    const speedEl = resultEl.querySelector('.speed');
+    
+    try {
+        const startTime = performance.now();
+        const response = await fetch(url, {
+            headers: { 'Range': `bytes=0-${testSize - 1}` }
+        });
+        
+        if (!response.ok && response.status !== 206) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const reader = response.body.getReader();
+        let receivedLength = 0;
+        let lastTime = startTime;
+        let lastBytes = 0;
+        
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done || receivedLength >= testSize) break;
+            
+            receivedLength += value.length;
+            const now = performance.now();
+            
+            // 每 500ms 更新一次显示
+            if (now - lastTime > 500) {
+                const elapsed = (now - startTime) / 1000;
+                const speed = receivedLength / elapsed / 1024 / 1024;
+                const instantSpeed = (receivedLength - lastBytes) / ((now - lastTime) / 1000) / 1024 / 1024;
+                
+                const progress = Math.min(100, (receivedLength / testSize) * 100);
+                progressBar.style.width = progress + '%';
+                downloadedEl.textContent = (receivedLength / 1024 / 1024).toFixed(2);
+                speedEl.textContent = `${speed.toFixed(2)} MB/s (瞬时: ${instantSpeed.toFixed(2)} MB/s)`;
+                
+                lastTime = now;
+                lastBytes = receivedLength;
+            }
+        }
+        
+        const totalTime = (performance.now() - startTime) / 1000;
+        const avgSpeed = receivedLength / totalTime / 1024 / 1024;
+        
+        progressBar.style.width = '100%';
+        downloadedEl.textContent = (receivedLength / 1024 / 1024).toFixed(2);
+        speedEl.textContent = `${avgSpeed.toFixed(2)} MB/s`;
+        speedEl.style.color = avgSpeed > 1 ? '#00ff88' : '#ff6b6b';
+        
+        log(`${label} 完成: ${avgSpeed.toFixed(2)} MB/s, 耗时 ${totalTime.toFixed(1)}s`);
+        
+        return avgSpeed;
+    } catch (e) {
+        speedEl.textContent = `错误: ${e.message}`;
+        speedEl.style.color = '#ff6b6b';
+        log(`${label} 失败: ${e.message}`);
+        return 0;
+    }
+}
+
+async function testDirect() {
+    const url = document.getElementById('directUrl').value.trim();
+    if (!url) { alert('请输入直链 URL'); return; }
+    document.getElementById('results').innerHTML = '';
+    await measureSpeed(url, '📡 OneDrive 直链');
+}
+
+async function testProxy() {
+    const directUrl = document.getElementById('directUrl').value.trim();
+    const workerUrl = document.getElementById('workerUrl').value.trim();
+    if (!directUrl || !workerUrl) { alert('请输入 URL'); return; }
+    
+    const proxyUrl = `${workerUrl}/?url=${encodeURIComponent(directUrl)}`;
+    document.getElementById('results').innerHTML = '';
+    await measureSpeed(proxyUrl, '🚀 CF Worker 代理');
+}
+
+async function testBoth() {
+    const directUrl = document.getElementById('directUrl').value.trim();
+    const workerUrl = document.getElementById('workerUrl').value.trim();
+    if (!directUrl || !workerUrl) { alert('请输入 URL'); return; }
+    
+    document.getElementById('results').innerHTML = '';
+    document.getElementById('log').innerHTML = '';
+    
+    log('=== 开始对比测试 ===');
+    
+    const directSpeed = await measureSpeed(directUrl, '📡 OneDrive 直链');
+    await new Promise(r => setTimeout(r, 1000));
+    
+    const proxyUrl = `${workerUrl}/?url=${encodeURIComponent(directUrl)}`;
+    const proxySpeed = await measureSpeed(proxyUrl, '🚀 CF Worker 代理');
+    
+    log('=== 测试完成 ===');
+    if (directSpeed && proxySpeed) {
+        const diff = ((proxySpeed - directSpeed) / directSpeed * 100).toFixed(1);
+        log(`结论: CF 代理 ${proxySpeed > directSpeed ? '快' : '慢'} ${Math.abs(diff)}%`);
+    }
+}
+</script>
+</body>
+</html>

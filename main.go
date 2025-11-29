@@ -13,10 +13,13 @@ import (
 )
 
 type Config struct {
-	Port           string `json:"port"`
-	OpenListURL    string `json:"openlist_url"`
-	RcloneURL      string `json:"rclone_url"`
+	Port            string `json:"port"`
+	OpenListURL     string `json:"openlist_url"`
+	RcloneURL       string `json:"rclone_url"`
 	RclonePikpakURL string `json:"rclone_pikpak_url"`
+	CloudDriveURL   string `json:"clouddrive_url"`
+	CloudDriveUser  string `json:"clouddrive_user"`
+	CloudDrivePass  string `json:"clouddrive_pass"`
 }
 
 type AnimeInfo struct {
@@ -56,6 +59,7 @@ func main() {
 	http.HandleFunc("/api/anime/episodes", handleAnimeEpisodes)
 	http.HandleFunc("/api/list", handleList)
 	http.HandleFunc("/api/get", handleGet)
+	http.HandleFunc("/api/stream/", handleStream)
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
 	addr := ":" + config.Port
@@ -260,4 +264,54 @@ func callOpenList(endpoint string, body map[string]interface{}) ([]byte, error) 
 	}
 	defer resp.Body.Close()
 	return io.ReadAll(resp.Body)
+}
+
+// CloudDrive2 WebDAV 流式代理
+func handleStream(w http.ResponseWriter, r *http.Request) {
+	// 路径格式: /api/stream/OneDrive/anime/xxx/file.mp4
+	path := strings.TrimPrefix(r.URL.Path, "/api/stream")
+	if path == "" {
+		http.Error(w, "path required", 400)
+		return
+	}
+
+	// 构建 WebDAV URL
+	webdavURL := strings.TrimSuffix(config.CloudDriveURL, "/") + path
+
+	// 创建请求
+	req, err := http.NewRequest(r.Method, webdavURL, nil)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	// 添加认证
+	req.SetBasicAuth(config.CloudDriveUser, config.CloudDrivePass)
+
+	// 转发 Range 头（支持视频拖动）
+	if rangeHeader := r.Header.Get("Range"); rangeHeader != "" {
+		req.Header.Set("Range", rangeHeader)
+	}
+
+	// 发送请求
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	defer resp.Body.Close()
+
+	// 复制响应头
+	for k, v := range resp.Header {
+		for _, vv := range v {
+			w.Header().Add(k, vv)
+		}
+	}
+
+	// 添加 CORS
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
 }
