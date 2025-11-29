@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 User=ubuntu
-ExecStart=/usr/bin/rclone serve http onedrive: --addr 0.0.0.0:5555 --read-only
+ExecStart=/usr/bin/rclone serve http onedrive: --addr 0.0.0.0:5555 --read-only --buffer-size 256M --vfs-cache-mode full --vfs-read-chunk-size 64M --vfs-read-ahead 512M --transfers 16
 Restart=always
 RestartSec=5
 
