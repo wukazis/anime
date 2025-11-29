@@ -13,9 +13,10 @@ import (
 )
 
 type Config struct {
-	Port        string `json:"port"`
-	OpenListURL string `json:"openlist_url"`
-	RcloneURL   string `json:"rclone_url"`
+	Port           string `json:"port"`
+	OpenListURL    string `json:"openlist_url"`
+	RcloneURL      string `json:"rclone_url"`
+	RclonePikpakURL string `json:"rclone_pikpak_url"`
 }
 
 type AnimeInfo struct {
@@ -65,9 +66,10 @@ func main() {
 
 func loadConfig() {
 	config = Config{
-		Port:        "8888",
-		OpenListURL: "https://www.openlists.online",
-		RcloneURL:   "http://localhost:5555",
+		Port:            "8888",
+		OpenListURL:     "https://www.openlists.online",
+		RcloneURL:       "http://localhost:5555",
+		RclonePikpakURL: "http://localhost:5556",
 	}
 	data, _ := os.ReadFile("config.json")
 	json.Unmarshal(data, &config)
@@ -237,9 +239,21 @@ func handleGet(w http.ResponseWriter, r *http.Request) {
 
 	// 如果是 onedrive 路径，使用 rclone serve 直链
 	if strings.HasPrefix(path, "/onedrive/") {
-		// /onedrive/anime/xxx -> anime/xxx
 		rclonePath := strings.TrimPrefix(path, "/onedrive/")
 		rawURL := strings.TrimSuffix(config.RcloneURL, "/") + "/" + rclonePath
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"code": 200,
+			"data": map[string]string{"raw_url": rawURL},
+		})
+		return
+	}
+
+	// 如果是 pikpak 路径，使用 rclone serve 直链
+	if strings.HasPrefix(path, "/pikpak/") {
+		// /pikpak/wukazi/xxx -> xxx (去掉 wukazi 前缀，因为 rclone serve 的根目录就是 wukazi)
+		rclonePath := strings.TrimPrefix(path, "/pikpak/wukazi/")
+		rawURL := strings.TrimSuffix(config.RclonePikpakURL, "/") + "/" + rclonePath
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"code": 200,

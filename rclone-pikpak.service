@@ -1,0 +1,13 @@
+[Unit]
+Description=Rclone PikPak HTTP Server
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+ExecStart=/usr/bin/rclone serve http pikpak:wukazi --addr 0.0.0.0:5556 --read-only
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
